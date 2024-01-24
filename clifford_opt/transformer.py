@@ -162,104 +162,18 @@ class CZ_X_to_X_Z_CZ(X_CZ_to_CZ_X_Z):
         circuit.data = circuit2.data[::-1]
         return circuit
     
-class CZ_X_Z_to_X_CZ(Transformer):
+class RZ_CZ_to_CZ_RZ(Transformer):
     """
-    ───@──X────   ───X────@────
-       |        ≡         |
-    ───@────Z──   ────────@────
-    """
-    def find(self, qc : QuantumCircuit) -> list:
-        circuit = qc
-        result = []
-        for i, instr1 in enumerate(circuit):
-            indexes = None
-            if (instr1.operation.name == 'cz'):
-                q1, q2 = instr1.qubits
-                for j, instr2 in enumerate(circuit[i + 1:]):
-                    if (instr2.operation.name == 'rx'
-                        and np.abs(instr2.operation.params[0] - np.pi) < 1e-6
-                        and instr2.qubits[0] in [q1, q2]):
-
-                        q_x = instr2.qubits[0]
-                        q_z = q2 if q_x == q1 else q1
-
-                        for k, instr3 in enumerate(circuit[i + 1:]):
-                            if q_z in list(instr3.qubits):
-                                if (instr3.operation.name == 'rz'
-                                    and np.abs(instr3.operation.params[0] - np.pi) < 1e-6):
-                                    q_z = instr3.qubits[0]
-                                    indexes = i, i + j + 1, i + k + 1
-                                break
-                        break
-                    if (instr2.operation.name != 'rz' and (q1 in list(instr2.qubits) or q2 in list(instr2.qubits))):
-                        break
-            if indexes is not None:
-                result.append(indexes)
-        return result
-
-    def transform(self, qc : QuantumCircuit, indexes : tuple, inplace=False) -> QuantumCircuit:
-        circuit = qc
-        if not inplace:
-            circuit = qc.copy()
-        index_cz, index_x, index_z = indexes
-        assert(circuit[index_x].operation.name == 'rx')
-        assert(circuit[index_z].operation.name == 'rz')
-        assert(circuit[index_cz].operation.name == 'cz')
-        qs = circuit[index_cz].qubits
-        assert (circuit[index_x].qubits[0] in list(qs) and circuit[index_z].qubits[0] in list(qs))
-
-        q_x = circuit[index_x].qubits[0]
-        circuit.rx(np.pi, q_x)
-        if index_x < index_z:
-            circuit.data.pop(index_z)
-            circuit.data.pop(index_x)
-        else:
-            circuit.data.pop(index_x)
-            circuit.data.pop(index_z)
-        circuit.data.insert(index_cz, circuit[-1])
-        circuit.data = circuit.data[:-1]
-        return circuit
-
-class X_Z_CZ_to_CZ_X(CZ_X_Z_to_X_CZ):
-    """
-    ─X──@──────   ───────@───X─
-        |        ≡       |
-    ──Z─@──────   ───────@────
-    """
-    def find(self, qc : QuantumCircuit) -> list:
-        circuit = qc.copy()
-        circuit.data = circuit.data[::-1]
-        result = super().find(circuit)
-        d = len(qc)
-        for i in range(len(result)):
-            index_cz, index_x, index_z = result[i]
-            result[i] = d - 1 - index_cz, d - 1 - index_x, d - 1 - index_z
-        return result
-
-    def transform(self, qc : QuantumCircuit, indexes : tuple, inplace=False) ->QuantumCircuit:
-        circuit = qc
-        if not inplace:
-            circuit = qc.copy()
-        index_cz, index_x, index_z = indexes
-        circuit2 = qc.copy()
-        circuit2.data = circuit2.data[::-1]
-        d = len(circuit2)
-        circuit2 = super().transform(circuit2, (d - 1 - index_cz, d - 1 - index_x, d - 1 - index_z), inplace=True)
-        circuit.data = circuit2.data[::-1]
-        return circuit
-    
-class Z_CZ_to_CZ_Z(Transformer):
-    """
-    ───Z───@───      ───@───Z───
-           |     ≡      |       
-    ───────@───      ───@──────
+    ───RZ───@───      ───@───RZ───
+            |     ≡      |       
+    ────────@───      ───@──────
     """
     def find(self, qc : QuantumCircuit) -> list:
         circuit = qc
         result = []
         for i, instr1 in enumerate(circuit):
             indexes = None
-            if (instr1.operation.name == 'rz' and np.abs(instr1.operation.params[0] - np.pi) < 1e-6):
+            if (instr1.operation.name == 'rz'):
                 q_z = instr1.qubits[0]
                 for j, instr2 in enumerate(circuit[i + 1:]):
                     if q_z in list(instr2.qubits):
@@ -286,7 +200,7 @@ class Z_CZ_to_CZ_Z(Transformer):
         circuit.data = circuit.data[:-1]
         return circuit
 
-class CZ_Z_to_Z_CZ(Z_CZ_to_CZ_Z):
+class CZ_RZ_to_RZ_CZ(RZ_CZ_to_CZ_RZ):
     """
     ────@─────Z─      ───Z───@───────
         |         ≡          |       
@@ -314,3 +228,13 @@ class CZ_Z_to_Z_CZ(Z_CZ_to_CZ_Z):
         circuit.data = circuit2.data[::-1]
         return circuit
     
+"""
+────X─────RZ(a)─   ≡   ───RZ(-a)───X───
+
+────RX(a + pi)──── ≡ ────RX(a)────RX(pi)
+
+──── U ────────    ≡ ────RZ────RX────RZ────
+
+────X──Z──         ≡ ────Z──X──
+
+"""

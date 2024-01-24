@@ -116,50 +116,6 @@ def round_angles(circuit):
             new_circuit.append(instr, qargs, cargs)
     return new_circuit
 
-
-
-def make_clifford_data(circ : QuantumCircuit, data : list = None, round_angle : bool = False):
-    if not round_angle or not data:
-        c, data = make_native_circuit(round_angles(circ), opt_level=0)
-    else:
-        c = circ
-    new_circuit = QuantumCircuit(*c.qregs, *c.cregs)
-    new_data = []
-    for i, (instr, qargs, cargs) in enumerate(c.data):
-        if (instr.name == 'rz'):
-            angle = instr.params[0]
-            if (angle == np.pi / 2):
-                new_circuit.s(qargs)
-                new_data.append(data[i])
-            elif (angle == np.pi):
-                new_circuit.z(qargs)
-                new_data.append(data[i])
-            elif (angle == 3 * np.pi / 2):
-                new_circuit.s(qargs)
-                new_circuit.z(qargs)
-                new_data += [0, data[i]]
-        elif (instr.name == 'rx'):
-            angle = instr.params[0]
-            if (angle == np.pi / 2):
-                new_circuit.h(qargs)
-                new_circuit.s(qargs)
-                new_circuit.h(qargs)
-                new_data += [0, 0, data[i]]
-            elif (angle == np.pi):
-                new_circuit.x(qargs)
-                new_data.append(data[i])
-            elif (angle == 3 * np.pi / 2):
-                new_circuit.h(qargs)
-                new_circuit.s(qargs)
-                new_circuit.h(qargs)
-                new_circuit.x(qargs)
-                new_data += [0, 0, 0, data[i]]
-        else:
-            new_circuit.append(instr, qargs, cargs)
-            new_data.append(data[i])
-    return new_circuit, new_data
-
-
 def noisy_circuit(circuit, data):
     new_circuit = QuantumCircuit(*circuit.qregs, *circuit.cregs)
     assert(len(circuit.data) == len(data))
@@ -174,7 +130,7 @@ def noisy_circuit(circuit, data):
 
 #to check clifford
 def fidelity_density_matrix_clifford(circuit :QuantumCircuit, T2=2000, T_RX=100, T_RZ=30, T_CZ=15, measure=True):
-    circ, d = make_clifford_data(circuit)
+    circ, d = make_native_circuit(round_angles(circuit))
     noiseless_circ = circ.copy()
     noiseless_circ.save_density_matrix()
     g = AerSimulator(method='density_matrix')
@@ -198,7 +154,7 @@ def fidelity_density_matrix_clifford(circuit :QuantumCircuit, T2=2000, T_RX=100,
         return state_fidelity(rho1, rho2)
 
 def fidelity_clifford_measuring(circuit : QuantumCircuit, shots=1000, use_tqdm=True):
-    c, d = make_clifford_data(round_angles(circuit))
+    c, d = make_native_circuit(round_angles(circuit))
     noiseless = c.copy()
     noiseless.measure_all()
     g = AerSimulator(method='stabilizer')
