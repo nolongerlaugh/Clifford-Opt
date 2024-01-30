@@ -1,26 +1,24 @@
 from qiskit import QuantumCircuit, transpile
 from qiskit.quantum_info import Operator
 from qiskit.providers.aer import AerSimulator
-from qiskit_aer import aerbackend, aerprovider
-from qiskit.providers.aer.noise import NoiseModel, depolarizing_error, QuantumError, pauli_error
+from qiskit_aer import aerbackend
+from qiskit.providers.aer.noise import pauli_error
 from qiskit.quantum_info import state_fidelity
 
 import numpy as np
-from collections import defaultdict
-from tqdm import tqdm
 import pandas as pd
 
 np.random.seed(239)
 native_gates = ['rz', 'cz', 'rx']
 noise_model = aerbackend.NoiseModel()
-p_gate1 = 0.005
+p_gate1 = 0.05
 error_gate1 = pauli_error([('Z',p_gate1), ('I', 1 - p_gate1)])
 error_gate2 = error_gate1.tensor(error_gate1)
 noise_model.add_all_qubit_quantum_error(error_gate1, ["rx", "rz"])
 noise_model.add_all_qubit_quantum_error(error_gate2, ["cz"])
 
 #to check (measuring -> measure = True)
-def Qfidelity_density_matrix_orig(circuit :QuantumCircuit, measure=True):
+def Qfidelity_density_matrix_orig(circuit :QuantumCircuit, measure=False, shots=None, use_tqdm=None):
     circ = circuit.copy()
     circ.save_density_matrix()
     g = AerSimulator(method='density_matrix')
@@ -37,7 +35,7 @@ def Qfidelity_density_matrix_orig(circuit :QuantumCircuit, measure=True):
 from .fidelity import round_angles
 
 #to check clifford
-def Qfidelity_density_matrix_clifford(circuit :QuantumCircuit, measure=True):
+def Qfidelity_density_matrix_clifford(circuit :QuantumCircuit, measure=False, shots=None, use_tqdm=None):
     circ = round_angles(circuit)
     circ.save_density_matrix()
     g = AerSimulator(method='density_matrix')
